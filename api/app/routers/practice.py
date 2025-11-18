@@ -14,17 +14,28 @@ def validate_sentence(
     request: ValidateSentenceRequest,
     db: Session = Depends(get_db)
 ):
-    """
-    Receive user sentence and validate it (mock AI)
-    Save results to database
-    """
-    # Get word data
+    # Look for word
+    word = db.query(Word).filter(Word.id == request.word_id).first()
+    if word is None:
+        raise HTTPException(status_code=404, detail="Word not found")
+
     # Mock AI validation
-    # Save to database
-    return ValidateSentenceResponse(
-        score=85,
-        level="Intermediate",
-        suggestion="Good job! Just a minor correction needed.",
-        corrected_sentence="This is the corrected sentence."
+    result = mock_ai_validation(
+        request.sentence,  
+        word.word,
+        word.difficulty_level
     )
-    
+
+    new_record = PracticeSession(
+        word_id=request.word_id,
+        user_sentence=request.sentence,
+        score=result["score"],
+        feedback=result["suggestion"],
+        corrected_sentence=result["corrected_sentence"]
+    )
+
+    db.add(new_record)
+    db.commit()
+    db.refresh(new_record)
+
+    return result
